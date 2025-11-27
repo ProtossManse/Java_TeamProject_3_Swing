@@ -3,13 +3,12 @@ package screen;
 import javax.swing.*;
 
 public class LoginPanel extends JPanel {
+    JTextField userNameField = new JTextField(10);
+    JPasswordField passwordField = new JPasswordField(10);
 
     public LoginPanel() {
-        JTextField userNameField = new JTextField(10);
-        JPasswordField passwordField = new JPasswordField(10);
 
         this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-
 
         this.add(new JLabel("Username:"));
         this.add(userNameField);
@@ -18,4 +17,11 @@ public class LoginPanel extends JPanel {
         this.add(passwordField);
     }
 
+    public String getUsername() {
+        return userNameField.getText();
+    }
+
+    public String getPassword() {
+        return new String(passwordField.getPassword());
+    }
 }

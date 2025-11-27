@@ -1,34 +1,90 @@
+import manager.UserManager;
 import screen.LoginPanel;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class App extends JFrame {
     Container frame = getContentPane();
     JPanel CenterPanel;
+    UserManager userManager = new UserManager();
 
     App() {
         setSize(800, 800);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setLocationRelativeTo(null);
         setVisible(true);
-
-
-        showLoginDialog();
+        onLaunch();
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                onDispose();
+            }
+        });
 
 
     }
 
-    void showLoginDialog() {
+    private void onLaunch() {
+        userManager.loadUser();
+        showLoginDialog();
+
+    }
+
+    private void onDispose() {
+        userManager.saveUsers();
+        System.exit(0);
+
+    }
+
+    private void showLoginDialog() {
         LoginPanel loginPanel = new LoginPanel();
-        int result = JOptionPane.showConfirmDialog(
+        Object[] options = {"로그인", "회원가입"};
+        int result = JOptionPane.showOptionDialog(
                 null,
                 loginPanel,
                 "로그인",
-                JOptionPane.OK_CANCEL_OPTION
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                options,
+                options[0]
         );
+        String username = loginPanel.getUsername();
+        String password = loginPanel.getPassword();
+
+        loginDialogLogic(result, username, password);
 
     }
 
+    private void loginDialogLogic(int result, String username, String password) {
+        if (result == JOptionPane.CLOSED_OPTION) onDispose();
+
+        if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "값을 입력해주세요!");
+            showLoginDialog();
+            return;
+        }
+        if (result == JOptionPane.YES_OPTION) {
+            if (userManager.checkUser(username, password)) {
+                JOptionPane.showMessageDialog(null, "로그인에 성공했습니다!");
+                userManager.setCurrentUser(username, password);
+            } else {
+                JOptionPane.showMessageDialog(null, "없는 회원입니다!");
+                showLoginDialog();
+            }
+        } else if (result == JOptionPane.NO_OPTION) {
+            if (!userManager.checkUser(username, password)) {
+                JOptionPane.showMessageDialog(null, "회원가입에 성공했습니다!");
+                userManager.registerUser(username, password);
+            } else {
+                JOptionPane.showMessageDialog(null, "이미 존재하는 회원입니다!");
+                showLoginDialog();
+            }
+        }
+
+    }
 
 }
