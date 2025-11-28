@@ -19,7 +19,7 @@ public class User {
     public User(String name, String password) {
         this.name = name;
         this.password = password;
-        this.streak = 0;
+        this.streak = 1;
         this.lastDate = LocalDate.now();
     }
 
@@ -35,8 +35,19 @@ public class User {
         return streak;
     }
 
-    public void setStreak(int streak) {
-        this.streak = streak;
+    public void setStreak() {
+        int currentStreak = this.streak;
+        if (this.lastDate.equals(LocalDate.now())) {
+            return;
+            // 오늘 이미 접속했다면 스트릭 유지
+        } else if (this.lastDate.plusDays(1).equals(LocalDate.now())) {
+            streak = currentStreak + 1;
+            // 마지막 접속일이 어제라면 스트릭 1 증가 (연속 접속 성공!)
+        } else {
+            streak = 1;
+            // 연속 접속이 끊겼으므로 1일부터 다시 시작
+        }
+
     }
 
     public LocalDate getLastDate() {

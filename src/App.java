@@ -60,31 +60,47 @@ public class App extends JFrame {
     }
 
     private void loginDialogLogic(int result, String username, String password) {
-        if (result == JOptionPane.CLOSED_OPTION) onDispose();
+        if (result == JOptionPane.CLOSED_OPTION) {
+            onDispose();
+            return;
+        }
 
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
             JOptionPane.showMessageDialog(null, "값을 입력해주세요!");
             showLoginDialog();
             return;
         }
+
+        String message = "";
+        boolean needsRecur = false;
+
         if (result == JOptionPane.YES_OPTION) {
             if (userManager.checkUser(username, password)) {
-                JOptionPane.showMessageDialog(null, "로그인에 성공했습니다!");
+                message = "로그인에 성공했습니다!";
                 userManager.setCurrentUser(username, password);
+
             } else {
-                JOptionPane.showMessageDialog(null, "없는 회원입니다!");
-                showLoginDialog();
+                message = "없는 회원입니다!";
+                needsRecur = true;
             }
+
         } else if (result == JOptionPane.NO_OPTION) {
             if (!userManager.checkUser(username, password)) {
-                JOptionPane.showMessageDialog(null, "회원가입에 성공했습니다!");
+                message = "회원가입에 성공했습니다!";
                 userManager.registerUser(username, password);
             } else {
-                JOptionPane.showMessageDialog(null, "이미 존재하는 회원입니다!");
-                showLoginDialog();
+                message = "이미 존재하는 회원입니다!";
+                needsRecur = true;
             }
         }
 
-    }
+        if (needsRecur) {
+            JOptionPane.showMessageDialog(null, message);
+            showLoginDialog(); // 재귀 호출 (다시 시도)
+            return;
+        }
 
+        JOptionPane.showMessageDialog(null, message);
+        userManager.getCurrentUser().setStreak();
+    }
 }

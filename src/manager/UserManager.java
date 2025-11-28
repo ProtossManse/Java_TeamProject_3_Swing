@@ -9,7 +9,7 @@ import java.util.List;
 
 public class UserManager {
     public List<User> users;
-    private User currentUser = new User("", "", 0, LocalDate.now());
+    private User currentUser = new User("", "", 1, LocalDate.now());
 
 
     public void loadUser() {
@@ -25,7 +25,7 @@ public class UserManager {
 
         User registeredUser = new User(username, password);
         users.add(registeredUser);
-        currentUser = registeredUser;
+        setCurrentUser(registeredUser);
         System.out.println(users);
     }
 
@@ -41,6 +41,10 @@ public class UserManager {
 
     public void setCurrentUser(String username, String password) {
         currentUser = new User(username, password);
+    }
+
+    private void setCurrentUser(User user) {
+        currentUser = user;
     }
 
     public User getCurrentUser() {
