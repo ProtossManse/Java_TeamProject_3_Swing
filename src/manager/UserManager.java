@@ -13,7 +13,7 @@ public class UserManager {
 
 
     public void loadUser() {
-        users = UserMapper.toUserList(FileManager.read(Path.getUsersFilePath()));
+        users = UserMapper.toUserList(FileManager.read(Path.USERS_TXT_PATH));
         System.out.println(users);
     }
 
@@ -26,6 +26,7 @@ public class UserManager {
         User registeredUser = new User(username, password);
         users.add(registeredUser);
         setCurrentUser(registeredUser);
+        FileManager.createUserDirectories(registeredUser.getName());
         System.out.println(users);
     }
 
@@ -35,7 +36,7 @@ public class UserManager {
             for (User user : users) {
                 data += user.getName() + "\t" + user.getPassword() + "\t" + user.getStreak() + "\t" + user.getLastDate() + "\n";
             }
-            FileManager.write(Path.getUsersFilePath(), data);
+            FileManager.write(Path.USERS_TXT_PATH, data);
         }
     }
 

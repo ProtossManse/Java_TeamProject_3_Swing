@@ -5,18 +5,22 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
+import java.io.IOException;
 
 public class App extends JFrame {
     Container frame = getContentPane();
-    JPanel CenterPanel;
+    JPanel centerPanel = new JPanel();
     UserManager userManager = new UserManager();
 
     App() {
-        setSize(800, 800);
+        setSize(400, 300);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setTitle("3조 단어장 앱");
         setLocationRelativeTo(null);
-        setVisible(true);
         onLaunch();
+        initComponents();
+        setVisible(true);
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -27,9 +31,45 @@ public class App extends JFrame {
 
     }
 
+
     private void onLaunch() {
+        initFileSystem();
         userManager.loadUser();
         showLoginDialog();
+
+    }
+
+    private void initFileSystem() {
+        try {
+            File vocasDir = new File(data.Path.PUBLIC_VOCAS_DIR);
+            if (!vocasDir.exists()) {
+                vocasDir.mkdirs();
+            }
+
+            File usersFile = new File(data.Path.USERS_TXT_PATH);
+            if (!usersFile.exists()) {
+                usersFile.createNewFile();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "파일 시스템 초기화 오류", "ERROR", JOptionPane.ERROR_MESSAGE);
+        }
+
+    }
+
+    private void initComponents() {
+        JLabel userLabel = new JLabel(userManager.getCurrentUser().getName() + "님, " + userManager.getCurrentUser().getStreak() + "일 연속 공부중입니다!", SwingConstants.CENTER);
+        this.add(userLabel, BorderLayout.NORTH);
+
+        JButton vocMenuButton = new JButton("단어장 관리");
+        JButton quizMenuButton = new JButton("퀴즈 풀기");
+        JButton noteManagerButton = new JButton("오답노트 관리");
+
+
+        centerPanel.add(vocMenuButton);
+        centerPanel.add(quizMenuButton);
+        centerPanel.add(noteManagerButton);
+        frame.add(centerPanel, BorderLayout.CENTER);
 
     }
 
