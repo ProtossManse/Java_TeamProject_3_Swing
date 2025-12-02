@@ -77,7 +77,7 @@ public class App extends JFrame {
         });
 
         quizMenuButton.addActionListener(e -> {
-            QuizDialog quizDialog = new QuizDialog(this);
+            QuizDialog quizDialog = new QuizDialog(this, userManager.getCurrentUser());
             quizDialog.setVisible(true);
         });
 
