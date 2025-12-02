@@ -1,5 +1,5 @@
 import manager.UserManager;
-import screen.LoginPanel;
+import screen.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,7 +14,7 @@ public class App extends JFrame {
     UserManager userManager = new UserManager();
 
     App() {
-        setSize(400, 300);
+        setSize(500, 300);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setTitle("3조 단어장 앱");
         setLocationRelativeTo(null);
@@ -61,12 +61,34 @@ public class App extends JFrame {
         JLabel userLabel = new JLabel(userManager.getCurrentUser().getName() + "님, " + userManager.getCurrentUser().getStreak() + "일 연속 공부중입니다!", SwingConstants.CENTER);
         this.add(userLabel, BorderLayout.NORTH);
 
-        JButton vocMenuButton = new JButton("단어장 관리");
+        JButton vocMenuButton = new JButton("개인 단어장 관리");
+        JButton publicVocMenuButton = new JButton("공용 단어장 관리");
         JButton quizMenuButton = new JButton("퀴즈 풀기");
         JButton noteManagerButton = new JButton("오답노트 관리");
 
+        vocMenuButton.addActionListener(e -> {
+            VocManageDialog vocManageDialog = new VocManageDialog(this, "단어장 관리", userManager.getCurrentUser());
+            vocManageDialog.setVisible(true);
+        });
+
+        publicVocMenuButton.addActionListener(e -> {
+            PublicVocManageDialog publicVocManageDialog = new PublicVocManageDialog(this, userManager.getCurrentUser());
+            publicVocManageDialog.setVisible(true);
+        });
+
+        quizMenuButton.addActionListener(e -> {
+            QuizDialog quizDialog = new QuizDialog(this);
+            quizDialog.setVisible(true);
+        });
+
+        noteManagerButton.addActionListener(e -> {
+            NoteDialog noteDialog = new NoteDialog(this, userManager.getCurrentUser());
+            noteDialog.setVisible(true);
+        });
+
 
         centerPanel.add(vocMenuButton);
+        centerPanel.add(publicVocMenuButton);
         centerPanel.add(quizMenuButton);
         centerPanel.add(noteManagerButton);
         frame.add(centerPanel, BorderLayout.CENTER);
