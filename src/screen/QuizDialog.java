@@ -36,7 +36,7 @@ public class QuizDialog extends JDialog {
         JPanel centerPanel = new JPanel();
 
         JLabel infoLabel = new JLabel("원하는 퀴즈를 선택하세요.");
-        infoLabel.setFont(new Font("고딕체", Font.BOLD, 25));
+        infoLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 25));
 
         JButton personalwordBtn = new JButton("개인 단어장 퀴즈");
         JButton personalnoteBtn = new JButton("개인 오답노트 퀴즈");
