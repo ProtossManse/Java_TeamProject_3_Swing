@@ -1,6 +1,7 @@
 package screen;
 
 import data.Path;
+import model.PublicWord;
 import model.User;
 import model.Word;
 
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 public class QuizDialog extends JDialog {
 
     protected User currentUser;
+    int publicBtn = 0; //1 = publicwordBtn, 2 = publicfreqBtn
 
     public QuizDialog(JFrame parent, User currentUser) {
         super(parent, "퀴즈 메뉴", true);
@@ -69,13 +71,15 @@ public class QuizDialog extends JDialog {
                 new OpenFileAction(new File(Path.getUserFavoriteVocaFilePath(currentUser.getName())), false)
         );
 
-        publicwordBtn.addActionListener(
-                new OpenFileAction(new File(Path.PUBLIC_DIR), true)
-        );
+        publicwordBtn.addActionListener(e-> {
+            this.publicBtn = 1;
+            new OpenFileAction(new File(Path.PUBLIC_DIR), true).actionPerformed(e);
+        });
 
-        publicfreqBtn.addActionListener(
-                new OpenFileAction(new File(Path.PUBLIC_DIR), true)
-        );
+        publicfreqBtn.addActionListener(e -> {
+            this.publicBtn = 2;
+            new OpenFileAction(new File(Path.PUBLIC_DIR), true).actionPerformed(e);
+        });
 
     }
 
@@ -119,11 +123,78 @@ public class QuizDialog extends JDialog {
 
     private void setQuiz(ArrayList<String> strings, boolean isPublic) {
         ArrayList<Word> words = new ArrayList<>();
-        for (String line : strings) {
-            String[] parts = line.split("\t");
-            words.add(new Word(parts[0].trim(), parts[1].trim()));
+
+        if(!isPublic){
+            for (String line : strings) {
+                String[] parts = line.split("\t");
+                words.add(new Word(parts[0].trim(), parts[1].trim()));
+            }
+        }else{
+            if(this.publicBtn==1){
+                for (String line : strings) {
+                    String[] parts = line.split("\t");
+                    if (parts.length == 4)
+                        words.add(new PublicWord(parts[0].trim(), parts[1].trim(), Integer.parseInt(parts[2].trim()), Integer.parseInt(parts[3].trim())));
+                    else words.add(new PublicWord(parts[0].trim(), parts[1].trim()));
+                }
+            }else if(this.publicBtn==2){
+                ArrayList<Word> filtered = new ArrayList<>();
+
+                for (String line : strings) {
+                    String[] parts = line.split("\t");
+                    if (parts.length < 2) continue; // eng, kor 미존재
+
+                    String eng = parts[0].trim();
+                    String kor = parts[1].trim();
+
+                    int total = 0;
+                    int correct = 0;
+
+
+                    if (parts.length >= 3) {
+                        try {
+                            total = Integer.parseInt(parts[2].trim());
+                        } catch (NumberFormatException ignored) {
+                            JOptionPane.showMessageDialog(null,
+                                    "통계가 없습니다!",
+                                    "경고", JOptionPane.WARNING_MESSAGE);
+                        }
+                    }
+                    if (parts.length >= 4) {
+                        try {
+                            correct = Integer.parseInt(parts[3].trim());
+                        } catch (NumberFormatException ignored) {
+                            JOptionPane.showMessageDialog(null,
+                                    "통계가 없습니다!",
+                                    "경고", JOptionPane.WARNING_MESSAGE);
+                        }
+                    }
+
+                    if (total == 0) continue;
+
+                    PublicWord word = new PublicWord(eng, kor, total, correct);
+
+                    if (word.getCorrectionRate() < 50) {
+                        filtered.add(word);
+                    }
+                }
+
+                if (filtered.isEmpty()) {
+                    JOptionPane.showMessageDialog(null,
+                            "정답률 50% 미만인 단어가 없습니다.",
+                            "알림", JOptionPane.PLAIN_MESSAGE);
+                    return;
+                }
+
+                words = filtered;
+            }
         }
 
+
+        quizMenu(words, isPublic);
+    }
+
+    private void quizMenu(ArrayList<Word> words, boolean isPublic){
         Object[] options = {"주관식 퀴즈", "객관식 퀴즈"};
 
         int optionResult = JOptionPane.showOptionDialog(
@@ -146,7 +217,6 @@ public class QuizDialog extends JDialog {
                     "문제 유형을 선택하지 않았습니다!",
                     "경고", JOptionPane.WARNING_MESSAGE);
         }
-
     }
 
 
