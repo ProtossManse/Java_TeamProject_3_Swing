@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 
@@ -50,12 +51,16 @@ public class FileManager {
     }
 
     public static boolean write(String path, String data) {
+        return write(path, data, false);
+    }
+
+    public static boolean write(String path, String data, boolean append) {
         File file = new File(path);
 
         checkFile(file); // Ensure file and its parent directories exist before writing.
 
-        try (FileOutputStream fos = new FileOutputStream(file);) {
-            fos.write(data.getBytes());
+        try (FileOutputStream fos = new FileOutputStream(file, append);) {
+            fos.write(data.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             return false;
         }

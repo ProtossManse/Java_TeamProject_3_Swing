@@ -14,7 +14,7 @@ public class App extends JFrame {
     UserManager userManager = new UserManager();
 
     App() {
-        setSize(500, 300);
+        setSize(700, 300);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setTitle("3조 단어장 앱");
         setLocationRelativeTo(null);
@@ -65,6 +65,7 @@ public class App extends JFrame {
         JButton publicVocMenuButton = new JButton("공용 단어장 관리");
         JButton quizMenuButton = new JButton("퀴즈 풀기");
         JButton noteManagerButton = new JButton("오답노트 관리");
+        JButton favoriteButton = new JButton("즐겨찾기");
 
         vocMenuButton.addActionListener(e -> {
             VocManageDialog vocManageDialog = new VocManageDialog(this, "단어장 관리", userManager.getCurrentUser());
@@ -86,11 +87,17 @@ public class App extends JFrame {
             noteDialog.setVisible(true);
         });
 
+        favoriteButton.addActionListener(e -> {
+            FavoriteDialog favoriteDialog = new FavoriteDialog(this, userManager.getCurrentUser());
+            favoriteDialog.setVisible(true);
+        });
+
 
         centerPanel.add(vocMenuButton);
         centerPanel.add(publicVocMenuButton);
         centerPanel.add(quizMenuButton);
         centerPanel.add(noteManagerButton);
+        centerPanel.add(favoriteButton);
         frame.add(centerPanel, BorderLayout.CENTER);
 
     }
