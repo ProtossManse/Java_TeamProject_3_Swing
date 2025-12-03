@@ -22,7 +22,6 @@ public class Word {
         return korean;
     }
 
-
     @Override
     public String toString() {
         return english + "\t" + korean;

@@ -8,16 +8,25 @@ import model.Word;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Random;
 
 public class QuizDialog extends JDialog {
 
+    static Random ran = new Random();
+
+    ArrayList<String> noteWords = new ArrayList<>();
     protected User currentUser;
+
     int publicBtn = 0; //1 = publicwordBtn, 2 = publicfreqBtn
+    int quizNum = 0;
+    int score = 0;
 
     public QuizDialog(JFrame parent, User currentUser) {
         super(parent, "퀴즈 메뉴", true);
@@ -189,8 +198,6 @@ public class QuizDialog extends JDialog {
                 words = filtered;
             }
         }
-
-
         quizMenu(words, isPublic);
     }
 
@@ -220,9 +227,208 @@ public class QuizDialog extends JDialog {
     }
 
 
+    public class ShortAnswerDialog extends JDialog {
+
+        JLabel questionLabel;
+        JTextField answerField;
+        JButton submitBtn;
+        JLabel resultLabel;
+        JLabel descriptionLabel;
+
+        ArrayList<Word> words;
+        ArrayList<Word> mutableWords;
+        Word currentWord;
+
+        String aKor, aEng;
+
+        int i,randquiz;
+
+        boolean isPublic;
+
+
+        public ShortAnswerDialog(JDialog parent, ArrayList<Word> words, boolean isPublic,
+                                 ArrayList<Word> mutableWords) {
+            super(parent, "주관식 퀴즈", true);
+            this.setLayout(new BorderLayout());
+
+            this.words = words;
+            this.mutableWords = mutableWords;
+            this.isPublic = isPublic;
+
+            this.setSize(700, 400);
+            this.setLocationRelativeTo(parent);
+            initLayout();
+            showShortQuestion();
+            this.setVisible(true);
+        }
+
+        private void initLayout() {
+
+            questionLabel = new JLabel();
+            if (words != null && !words.isEmpty()) {
+                questionLabel.setText(words.get(0).getEnglish());
+            }
+            questionLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 20));
+            answerField = new JTextField(20);
+            submitBtn = new JButton("제출");
+            resultLabel = new JLabel();
+            resultLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 24));
+            descriptionLabel = new JLabel();
+            descriptionLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 17));
+
+            JPanel northPanel = new JPanel();
+            northPanel.add(questionLabel);
+
+            JPanel centerPanel = new JPanel();
+            centerPanel.add(answerField);
+            centerPanel.add(submitBtn);
+
+            JPanel southPanel = new JPanel();
+            southPanel.add(resultLabel);
+            southPanel.add(descriptionLabel);
+
+
+            this.add(northPanel, "North");
+            this.add(centerPanel, "Center");
+            this.add(southPanel, "South");
+
+            submitBtn.addActionListener(e -> submitShortAnswer());
+
+        }
+
+        private void submitShortAnswer(){
+            if(this.randquiz==1) {
+                String answer = this.answerField.getText().trim();
+
+                String[] userAnswers = answer.split("/");
+                boolean isCorrect = true;
+
+                for (String userAnswer : userAnswers) {
+                    if (!this.currentWord.koreanList.contains(userAnswer.trim())) {
+                        isCorrect = false;
+                        break;
+                    }
+                }
+
+                if (isCorrect) {
+                    this.resultLabel.setText("정답!");
+                    if (isPublic && currentWord instanceof PublicWord) {
+                        ((PublicWord) currentWord).correct++;
+                    }
+                    score++;
+                } else {
+                    this.resultLabel.setText("오답!");
+                    addToNote(aEng, aKor);
+
+                    this.descriptionLabel.setText("정답은 " + aEng + " = " + getKorStr(this.currentWord.koreanList));
+                }
+
+            } else {
+                String answer = this.answerField.getText().trim();
+
+                if (answer.toLowerCase().equals(aEng)) {
+                    this.resultLabel.setText("정답!");
+                    if (isPublic && currentWord instanceof PublicWord) {
+                        ((PublicWord) currentWord).correct++;
+                    }
+                    score++; //점수 증가
+                } else {
+                    this.resultLabel.setText("오답!");
+                    addToNote(aEng, aKor);
+                   this.descriptionLabel.setText("정답은 " + aEng + " = " + getKorStr(this.currentWord.koreanList));
+                }
+            }
+            JOptionPane.showMessageDialog(null,"확인이 끝나셨다면 OK를 눌러주세요.",
+                    "알림",JOptionPane.INFORMATION_MESSAGE);
+
+            this.i++;
+            showShortQuestion();
+        }
+
+        public void showShortQuestion(){
+            if(mutableWords.isEmpty() || this.i >= quizNum){
+
+                JOptionPane.showMessageDialog(
+                        null,
+                        String.format("총 %d문제 중 %d개 정답 (정답률 %.1f%%)",
+                                quizNum, score, 100.0 * score / quizNum)
+                );
+                if (isPublic) {
+                    updateStatistics(words);
+                }
+                createNote();
+                this.dispose();
+                return;
+            }
+
+            int randomIndex = ran.nextInt(mutableWords.size());
+            this.currentWord = mutableWords.get(randomIndex);
+            mutableWords.remove(randomIndex);
+
+            this.aEng = this.currentWord.getEnglish();
+            this.aKor = this.currentWord.getKorean();
+
+            if (this.aKor.contains("/")) {
+                String[] aKorArr = this.aKor.split("/");
+                for (String kor : aKorArr) {
+                    this.currentWord.koreanList.add(kor.trim());
+                }
+            } else {
+                this.currentWord.koreanList.add(this.aKor);
+            }
+
+            if (isPublic && this.currentWord instanceof PublicWord) {
+                ((PublicWord) this.currentWord).questions++;
+            }
+
+            this.randquiz = ran.nextInt(2) + 1;
+            if (this.randquiz == 1) {
+
+                this.questionLabel.setText("[" + (this.i + 1) + "/" + quizNum + "] " + this.aEng + "의 뜻은?");
+
+
+            } else {
+
+                String questionStr = getKorStr(this.currentWord.koreanList);
+
+                this.questionLabel.setText("[" + (this.i + 1) + "/" + quizNum + "] '"
+                        + questionStr + "'를(을) 영어로 하면?");
+            }
+
+            this.answerField.setText("");
+            this.resultLabel.setText("");
+            this.descriptionLabel.setText("");
+            this.answerField.requestFocus();
+        }
+    }
+
     private void shortAnswerQuestion(ArrayList<Word> words, boolean isPublic) {
         // TODO: 주관식 퀴즈
-        System.out.println("주관식");
+
+        if (words == null) {
+            JOptionPane.showMessageDialog(null,"단어가 등록되어 있지 않습니다!",
+                    "경고", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        while (true) {
+            this.quizNum = Integer.parseInt(JOptionPane.showInputDialog("출제할 문제 수를 입력하세요."));
+            if (this.quizNum < 1) {
+                JOptionPane.showMessageDialog(null,
+                        "1문제 이상 출제해야 합니다. 다시 입력하세요!",
+                        "경고", JOptionPane.WARNING_MESSAGE);
+            } else {
+                break;
+            }
+        }
+        if (this.quizNum > words.size()) {
+            this.quizNum = words.size();
+        }
+
+        ArrayList<Word> mutableWords = new ArrayList<>(words);
+
+        this.dispose();
+        new ShortAnswerDialog(this, words, isPublic, mutableWords);
     }
 
 
@@ -231,6 +437,56 @@ public class QuizDialog extends JDialog {
         System.out.println("객관식");
     }
 
+
+    //오답노트
+
+    private void addToNote(String aEng, String aKor) {
+        String entry = aEng + "\t" + aKor;
+        if (!noteWords.contains(entry)) {
+            noteWords.add(entry);
+        }
+    }
+
+    private void createNote() {
+        if (noteWords.isEmpty()) {
+            JOptionPane.showMessageDialog(null,"틀린 단어가 없습니다.",
+                    "알림",JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        File notes = new File(Path.getUserNotesDirPath(currentUser.getName()));
+
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HH_mm_ss");
+        String formatted = now.format(formatter);
+
+        File noteFile = new File(notes, "note-" + formatted + ".txt");
+
+        try (PrintWriter pw = new PrintWriter(
+                new OutputStreamWriter(new FileOutputStream(noteFile, false), StandardCharsets.UTF_8))) {
+            for (String word : noteWords) {
+                pw.println(word);
+            }
+            JOptionPane.showMessageDialog(null,"오답노트 생성 완료",
+                    "알림",JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(null,
+                    "파일 저장 중 오류가 발생했습니다!\n"+e.getMessage(),
+                    "경고", JOptionPane.WARNING_MESSAGE);
+        }
+
+        noteWords.clear();
+    }
+
+    //기타 등등
+
+    private String getKorStr(ArrayList<String> aKorList) {
+        String korStr = ""; //출력할 정답
+        for (String kor : aKorList) {
+            korStr += kor + "/"; //한국어/한국어2/ ... / 형식
+        }
+        return korStr.substring(0, korStr.length() - 1); //맨 마지막의 /를 지우기
+    }
 
     private ArrayList<String> loadWordsFromFile(String pathStr) {
         try {
@@ -253,6 +509,22 @@ public class QuizDialog extends JDialog {
                     "파일을 읽는 중 오류가 발생했습니다!\n"+e.getMessage(),
                     "경고", JOptionPane.WARNING_MESSAGE);
             return null;
+        }
+    }
+
+    private void updateStatistics(ArrayList<Word> list) {
+        try (PrintWriter pw = new PrintWriter(
+                new OutputStreamWriter(new FileOutputStream(Path.PUBLIC_DIR, false), StandardCharsets.UTF_8))) {
+            for (Word word : list) {
+                if (word instanceof PublicWord)
+                    pw.println(word);
+            }
+            JOptionPane.showMessageDialog(null,"단어 통계를 파일에 저장했습니다.",
+                    "알림",JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(null,
+                    "단어 통계 저장 중 오류가 발생했습니다!\n"+e.getMessage(),
+                    "경고", JOptionPane.WARNING_MESSAGE);
         }
     }
 }
