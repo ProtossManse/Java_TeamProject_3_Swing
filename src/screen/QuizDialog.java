@@ -5,6 +5,7 @@ import model.PublicWord;
 import model.User;
 import model.Word;
 
+import java.util.Collections;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
@@ -402,6 +403,197 @@ public class QuizDialog extends JDialog {
         }
     }
 
+    public class MultipleChoiceDialog extends JDialog {
+
+        JLabel questionLabel;
+        JRadioButton[] optionButtons;
+        ButtonGroup buttonGroup;
+        JButton submitBtn;
+        JLabel resultLabel;
+        JLabel descriptionLabel;
+        ArrayList<Word> words;
+        ArrayList<Word> mutableWords;
+        ArrayList<Word> currentChoices;
+        Word currentWord;
+        String aEng;
+        String aKor;
+        int i;
+        boolean isPublic;
+
+        public MultipleChoiceDialog(JDialog parent, ArrayList<Word> words, boolean isPublic, ArrayList<Word> mutableWords) {
+            super(parent, "객관식 퀴즈", true);
+            this.words = words;
+            this.mutableWords = mutableWords;
+            this.isPublic = isPublic;
+
+            this.setLayout(new BorderLayout());
+            this.setSize(700, 400);
+            this.setLocationRelativeTo(parent);
+
+            initLayout();
+            showMultipleQuestion();
+            this.setVisible(true);
+        }
+
+        private void initLayout() {
+            questionLabel = new JLabel();
+            questionLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 20));
+
+            optionButtons = new JRadioButton[4];
+            buttonGroup = new ButtonGroup();
+
+            JPanel optionsPanel = new JPanel(new GridLayout(4, 1, 5, 5));
+            for (int idx = 0; idx < 4; idx++) {
+                optionButtons[idx] = new JRadioButton();
+                optionButtons[idx].setFont(new Font("Malgun Gothic", Font.PLAIN, 17));
+                buttonGroup.add(optionButtons[idx]);
+                optionsPanel.add(optionButtons[idx]);
+            }
+
+            submitBtn = new JButton("제출");
+
+            resultLabel = new JLabel();
+            resultLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 24));
+
+            descriptionLabel = new JLabel();
+            descriptionLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 17));
+
+            JPanel northPanel = new JPanel();
+            northPanel.add(questionLabel);
+
+            JPanel centerPanel = new JPanel(new BorderLayout());
+            centerPanel.add(optionsPanel, BorderLayout.CENTER);
+
+            JPanel southPanel = new JPanel(new BorderLayout());
+            JPanel southTop = new JPanel();
+            southTop.add(submitBtn);
+            JPanel southBottom = new JPanel();
+            southBottom.add(resultLabel);
+            southBottom.add(descriptionLabel);
+
+            southPanel.add(southTop, BorderLayout.NORTH);
+            southPanel.add(southBottom, BorderLayout.SOUTH);
+
+            this.add(northPanel, BorderLayout.NORTH);
+            this.add(centerPanel, BorderLayout.CENTER);
+            this.add(southPanel, BorderLayout.SOUTH);
+
+            submitBtn.addActionListener(e -> submitMultipleChoice());
+        }
+
+        private void submitMultipleChoice() {
+            // 아무 보기도 선택 안 했을 때
+            if (buttonGroup.getSelection() == null) {
+                JOptionPane.showMessageDialog(null, "보기를 선택해주세요!", "경고", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // 선택한 보기 찾기
+            int selectedIndex = -1;
+            for (int idx = 0; idx < optionButtons.length; idx++) {
+                if (optionButtons[idx].isSelected()) {
+                    selectedIndex = idx;
+                    break;
+                }
+            }
+
+            if (selectedIndex == -1) return;
+
+            int correctNum = -1;
+            // 정답 번호 계산
+            for (int k = 0; k < currentChoices.size(); k++) {
+                if (currentChoices.get(k).equals(currentWord)) {
+                    correctNum = k + 1;
+                    break;
+                }
+            }
+
+            Word selectedWord = currentChoices.get(selectedIndex);
+
+            if (selectedWord.equals(currentWord)) {
+                // 정답일 때
+                resultLabel.setText("정답!");
+                if (isPublic && currentWord instanceof PublicWord) {
+                    ((PublicWord) currentWord).correct++;
+                }
+                score++;
+
+                JOptionPane.showMessageDialog(null, "정답입니다!", "정답", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                // 오답일 때
+                resultLabel.setText("오답!");
+                addToNote(aEng, aKor);
+
+                String msg = "오답입니다!\n" +
+                        "정답: [" + correctNum + "번] " + aEng + " : " + aKor;
+
+                descriptionLabel.setText(msg);
+
+                JOptionPane.showMessageDialog(null, msg, "오답", JOptionPane.ERROR_MESSAGE);
+            }
+
+            i++;
+            showMultipleQuestion();
+        }
+
+        private void showMultipleQuestion() {
+            // 더 이상 낼 단어가 없거나, i가 quizNum이상이면 종료
+            if (mutableWords.isEmpty() || i >= quizNum) {
+                JOptionPane.showMessageDialog(
+                        null,
+                        String.format("총 %d문제 중 %d개 정답 (정답률 %.1f%%)",
+                                quizNum, score, 100.0 * score / quizNum)
+                );
+                if (isPublic) {
+                    updateStatistics(words); // PublicWord 통계 저장
+                }
+                createNote(); // 오답노트 파일 생성
+                this.dispose();
+                return;
+            }
+
+            int randomIndex = ran.nextInt(mutableWords.size());
+            currentWord = mutableWords.get(randomIndex);
+            mutableWords.remove(randomIndex);
+
+            aEng = currentWord.getEnglish();
+            aKor = currentWord.getKorean();
+
+            if (isPublic && currentWord instanceof PublicWord) {
+                ((PublicWord) currentWord).questions++;
+            }
+
+            // 보기 temp 리스트
+            ArrayList<Word> temp = new ArrayList<>(words);
+            temp.remove(currentWord);
+            Collections.shuffle(temp, ran);
+
+            // 정답 + 오답 3개
+            currentChoices = new ArrayList<>();
+            currentChoices.add(currentWord);
+            currentChoices.addAll(temp.subList(0, 3));
+            Collections.shuffle(currentChoices, ran);
+
+            // 문제 출력
+            questionLabel.setText(
+                    "[" + (i + 1) + "/" + quizNum + "] " + aEng + "의 뜻은?"
+            );
+
+            // 보기 세팅
+            for (int j = 0; j < currentChoices.size(); j++) {
+                String kor = currentChoices.get(j).getKorean();
+                String showKor = kor.contains("/") ? kor.split("/")[0].trim() : kor;
+                optionButtons[j].setText((j + 1) + ") " + showKor);
+            }
+
+            // 선택/메시지 초기화
+            buttonGroup.clearSelection();
+            resultLabel.setText("");
+            descriptionLabel.setText("");
+        }
+    }
+
+
     private void shortAnswerQuestion(ArrayList<Word> words, boolean isPublic) {
         // TODO: 주관식 퀴즈
 
@@ -433,8 +625,42 @@ public class QuizDialog extends JDialog {
 
 
     private void multipleChoiceQuestion(ArrayList<Word> words, boolean isPublic) {
-        // TODO: 객관식 퀴즈
-        System.out.println("객관식");
+        // 단어가 없거나 보기 4개를 만들 수 없으면 반환
+        if (words == null || words.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "단어가 등록되어 있지 않습니다!", "경고", JOptionPane.WARNING_MESSAGE);
+            return;
+        } else if (words.size() < 4) {
+            JOptionPane.showMessageDialog(null, "객관식 보기를 만들 단어(4개)가 부족합니다.", "경고", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        // 출제할 문제 수 입력
+        while (true) {
+            String input = JOptionPane.showInputDialog("출제할 문제 수를 입력하세요:");
+            if (input == null) {
+                JOptionPane.showMessageDialog(null, "문제 수를 입력하지 않았습니다!", "경고", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            try {
+                this.quizNum = Integer.parseInt(input.trim());
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(null, "숫자를 입력하세요!", "경고", JOptionPane.WARNING_MESSAGE);
+                continue;
+            }
+            if (this.quizNum < 1) {
+                JOptionPane.showMessageDialog(null, "1문제 이상 출제해야 합니다. 다시 입력하세요!", "경고", JOptionPane.WARNING_MESSAGE);
+            } else {
+                break;
+            }
+        }
+        if (this.quizNum > words.size()) {
+            this.quizNum = words.size(); // 최대 단어 개수까지
+        }
+
+        ArrayList<Word> mutableWords = new ArrayList<>(words);
+        // 점수 초기화
+        this.score = 0;
+        this.dispose();
+        new MultipleChoiceDialog(this, words, isPublic, mutableWords);
     }
 
 
