@@ -5,17 +5,16 @@ import model.PublicWord;
 import model.User;
 import model.Word;
 
-import java.util.Collections;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 
 public class QuizDialog extends JDialog {
@@ -24,6 +23,9 @@ public class QuizDialog extends JDialog {
 
     ArrayList<String> noteWords = new ArrayList<>();
     protected User currentUser;
+
+    private String currentFilePath;
+    private ArrayList<Word> currentAllWords;
 
     int publicBtn = 0; //1 = publicwordBtn, 2 = publicfreqBtn
     int quizNum = 0;
@@ -64,10 +66,8 @@ public class QuizDialog extends JDialog {
         centerPanel.add(publicwordBtn);
         centerPanel.add(publicfreqBtn);
 
-        contentPane.add(northPanel, "North");
-        contentPane.add(centerPanel, "Center");
-
-        // 버튼 이벤트
+        contentPane.add(northPanel, BorderLayout.NORTH);
+        contentPane.add(centerPanel, BorderLayout.CENTER);
 
         personalwordBtn.addActionListener(
                 new OpenFileAction(new File(Path.getUserVocasDirPath(currentUser.getName())), false)
@@ -81,7 +81,7 @@ public class QuizDialog extends JDialog {
                 new OpenFileAction(new File(Path.getUserFavoriteVocaFilePath(currentUser.getName())), false)
         );
 
-        publicwordBtn.addActionListener(e-> {
+        publicwordBtn.addActionListener(e -> {
             this.publicBtn = 1;
             new OpenFileAction(new File(Path.PUBLIC_DIR), true).actionPerformed(e);
         });
@@ -112,97 +112,95 @@ public class QuizDialog extends JDialog {
             fileChooser.setFileFilter(filter);
             int result = fileChooser.showOpenDialog(QuizDialog.this);
 
-            if(result != JFileChooser.APPROVE_OPTION){
+            if (result != JFileChooser.APPROVE_OPTION) {
                 JOptionPane.showMessageDialog(null,
                         "파일을 선택하지 않았습니다!", "경고", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            String filePath = fileChooser.getSelectedFile().getPath();
+            File selectedFile = fileChooser.getSelectedFile();
+            String filePath = selectedFile.getPath();
+
+            if (isPublic) {
+                QuizDialog.this.currentFilePath = filePath;
+            } else {
+                QuizDialog.this.currentFilePath = null;
+            }
+
             ArrayList<String> strings = loadWordsFromFile(filePath);
 
             if (strings == null || strings.isEmpty()) {
                 JOptionPane.showMessageDialog(null,
                         "파일에 단어가 존재하지 않습니다!",
                         "경고", JOptionPane.WARNING_MESSAGE);
-            }else{
+            } else {
                 setQuiz(strings, isPublic);
             }
         }
     }
 
     private void setQuiz(ArrayList<String> strings, boolean isPublic) {
-        ArrayList<Word> words = new ArrayList<>();
+        ArrayList<Word> allWords = new ArrayList<>();
+        ArrayList<Word> quizWords = new ArrayList<>();
 
-        if(!isPublic){
+        if (!isPublic) {
             for (String line : strings) {
                 String[] parts = line.split("\t");
-                words.add(new Word(parts[0].trim(), parts[1].trim()));
+                if (parts.length >= 2) {
+                    Word w = new Word(parts[0].trim(), parts[1].trim());
+                    allWords.add(w);
+                    quizWords.add(w);
+                }
             }
-        }else{
-            if(this.publicBtn==1){
-                for (String line : strings) {
-                    String[] parts = line.split("\t");
-                    if (parts.length == 4)
-                        words.add(new PublicWord(parts[0].trim(), parts[1].trim(), Integer.parseInt(parts[2].trim()), Integer.parseInt(parts[3].trim())));
-                    else words.add(new PublicWord(parts[0].trim(), parts[1].trim()));
-                }
-            }else if(this.publicBtn==2){
-                ArrayList<Word> filtered = new ArrayList<>();
+        } else {
+            for (String line : strings) {
+                String[] parts = line.split("\t");
+                if (parts.length < 2) continue;
 
-                for (String line : strings) {
-                    String[] parts = line.split("\t");
-                    if (parts.length < 2) continue; // eng, kor 미존재
+                String eng = parts[0].trim();
+                String kor = parts[1].trim();
 
-                    String eng = parts[0].trim();
-                    String kor = parts[1].trim();
+                int total = 0;
+                int correct = 0;
 
-                    int total = 0;
-                    int correct = 0;
-
-
-                    if (parts.length >= 3) {
-                        try {
-                            total = Integer.parseInt(parts[2].trim());
-                        } catch (NumberFormatException ignored) {
-                            JOptionPane.showMessageDialog(null,
-                                    "통계가 없습니다!",
-                                    "경고", JOptionPane.WARNING_MESSAGE);
-                        }
-                    }
-                    if (parts.length >= 4) {
-                        try {
-                            correct = Integer.parseInt(parts[3].trim());
-                        } catch (NumberFormatException ignored) {
-                            JOptionPane.showMessageDialog(null,
-                                    "통계가 없습니다!",
-                                    "경고", JOptionPane.WARNING_MESSAGE);
-                        }
-                    }
-
-                    if (total == 0) continue;
-
-                    PublicWord word = new PublicWord(eng, kor, total, correct);
-
-                    if (word.getCorrectionRate() < 50) {
-                        filtered.add(word);
+                if (parts.length >= 4) {
+                    try {
+                        total = Integer.parseInt(parts[2].trim());
+                        correct = Integer.parseInt(parts[3].trim());
+                    } catch (NumberFormatException ignored) {
                     }
                 }
 
-                if (filtered.isEmpty()) {
-                    JOptionPane.showMessageDialog(null,
-                            "정답률 50% 미만인 단어가 없습니다.",
-                            "알림", JOptionPane.PLAIN_MESSAGE);
-                    return;
-                }
+                PublicWord word = new PublicWord(eng, kor, total, correct);
+                allWords.add(word);
 
-                words = filtered;
+                if (this.publicBtn == 1) {
+                    // 공용 단어장 퀴즈
+                    quizWords.add(word);
+                } else if (this.publicBtn == 2) {
+                    // 많이 틀리는 단어 퀴즈
+                    if (total > 0 && word.getCorrectionRate() < 50) {
+                        quizWords.add(word);
+                    }
+                }
+            }
+
+            if (this.publicBtn == 2 && quizWords.isEmpty()) {
+                JOptionPane.showMessageDialog(null,
+                        "정답률 50% 미만인 단어가 없습니다.",
+                        "알림", JOptionPane.PLAIN_MESSAGE);
+                return;
             }
         }
-        quizMenu(words, isPublic);
+
+        // 전체 단어 목록 저장 (나중에 파일 저장 시 사용)
+        this.currentAllWords = allWords;
+
+        // 퀴즈 시작
+        quizMenu(quizWords, isPublic);
     }
 
-    private void quizMenu(ArrayList<Word> words, boolean isPublic){
+    private void quizMenu(ArrayList<Word> words, boolean isPublic) {
         Object[] options = {"주관식 퀴즈", "객관식 퀴즈"};
 
         int optionResult = JOptionPane.showOptionDialog(
@@ -216,11 +214,11 @@ public class QuizDialog extends JDialog {
                 options[0]
         );
 
-        if(optionResult==0){
+        if (optionResult == 0) {
             shortAnswerQuestion(words, isPublic);
-        }else if (optionResult==1){
+        } else if (optionResult == 1) {
             multipleChoiceQuestion(words, isPublic);
-        }else if (optionResult==-1){
+        } else if (optionResult == -1) {
             JOptionPane.showMessageDialog(null,
                     "문제 유형을 선택하지 않았습니다!",
                     "경고", JOptionPane.WARNING_MESSAGE);
@@ -242,7 +240,7 @@ public class QuizDialog extends JDialog {
 
         String aKor, aEng;
 
-        int i,randquiz;
+        int i, randquiz;
 
         boolean isPublic;
 
@@ -289,16 +287,16 @@ public class QuizDialog extends JDialog {
             southPanel.add(descriptionLabel);
 
 
-            this.add(northPanel, "North");
-            this.add(centerPanel, "Center");
-            this.add(southPanel, "South");
+            this.add(northPanel, BorderLayout.NORTH);
+            this.add(centerPanel, BorderLayout.CENTER);
+            this.add(southPanel, BorderLayout.SOUTH);
 
             submitBtn.addActionListener(e -> submitShortAnswer());
 
         }
 
-        private void submitShortAnswer(){
-            if(this.randquiz==1) {
+        private void submitShortAnswer() {
+            if (this.randquiz == 1) {
                 String answer = this.answerField.getText().trim();
 
                 String[] userAnswers = answer.split("/");
@@ -336,18 +334,18 @@ public class QuizDialog extends JDialog {
                 } else {
                     this.resultLabel.setText("오답!");
                     addToNote(aEng, aKor);
-                   this.descriptionLabel.setText("정답은 " + aEng + " = " + getKorStr(this.currentWord.koreanList));
+                    this.descriptionLabel.setText("정답은 " + aEng + " = " + getKorStr(this.currentWord.koreanList));
                 }
             }
-            JOptionPane.showMessageDialog(null,"확인이 끝나셨다면 OK를 눌러주세요.",
-                    "알림",JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(null, "확인이 끝나셨다면 OK를 눌러주세요.",
+                    "알림", JOptionPane.INFORMATION_MESSAGE);
 
             this.i++;
             showShortQuestion();
         }
 
-        public void showShortQuestion(){
-            if(mutableWords.isEmpty() || this.i >= quizNum){
+        public void showShortQuestion() {
+            if (mutableWords.isEmpty() || this.i >= quizNum) {
 
                 JOptionPane.showMessageDialog(
                         null,
@@ -355,7 +353,8 @@ public class QuizDialog extends JDialog {
                                 quizNum, score, 100.0 * score / quizNum)
                 );
                 if (isPublic) {
-                    updateStatistics(words);
+                    // 퀴즈가 끝났을 때 전체 단어 목록(currentAllWords)을 저장
+                    updateStatistics(QuizDialog.this.currentAllWords);
                 }
                 createNote();
                 this.dispose();
@@ -545,7 +544,8 @@ public class QuizDialog extends JDialog {
                                 quizNum, score, 100.0 * score / quizNum)
                 );
                 if (isPublic) {
-                    updateStatistics(words); // PublicWord 통계 저장
+                    // 퀴즈가 끝났을 때 전체 단어 목록(currentAllWords)을 저장
+                    updateStatistics(QuizDialog.this.currentAllWords);
                 }
                 createNote(); // 오답노트 파일 생성
                 this.dispose();
@@ -571,7 +571,11 @@ public class QuizDialog extends JDialog {
             // 정답 + 오답 3개
             currentChoices = new ArrayList<>();
             currentChoices.add(currentWord);
-            currentChoices.addAll(temp.subList(0, 3));
+            if (temp.size() >= 3) {
+                currentChoices.addAll(temp.subList(0, 3));
+            } else {
+                currentChoices.addAll(temp);
+            }
             Collections.shuffle(currentChoices, ran);
 
             // 문제 출력
@@ -579,11 +583,16 @@ public class QuizDialog extends JDialog {
                     "[" + (i + 1) + "/" + quizNum + "] " + aEng + "의 뜻은?"
             );
 
-            // 보기 세팅
-            for (int j = 0; j < currentChoices.size(); j++) {
-                String kor = currentChoices.get(j).getKorean();
-                String showKor = kor.contains("/") ? kor.split("/")[0].trim() : kor;
-                optionButtons[j].setText((j + 1) + ") " + showKor);
+            // 보기 세팅 (보기 개수가 4개보다 적어질 가능성을 대비)
+            for (int j = 0; j < 4; j++) {
+                if (j < currentChoices.size()) {
+                    String kor = currentChoices.get(j).getKorean();
+                    String showKor = kor.contains("/") ? kor.split("/")[0].trim() : kor;
+                    optionButtons[j].setText((j + 1) + ") " + showKor);
+                    optionButtons[j].setVisible(true);
+                } else {
+                    optionButtons[j].setVisible(false);
+                }
             }
 
             // 선택/메시지 초기화
@@ -595,22 +604,24 @@ public class QuizDialog extends JDialog {
 
 
     private void shortAnswerQuestion(ArrayList<Word> words, boolean isPublic) {
-        // TODO: 주관식 퀴즈
-
         if (words == null) {
-            JOptionPane.showMessageDialog(null,"단어가 등록되어 있지 않습니다!",
+            JOptionPane.showMessageDialog(null, "단어가 등록되어 있지 않습니다!",
                     "경고", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         while (true) {
-            this.quizNum = Integer.parseInt(JOptionPane.showInputDialog("출제할 문제 수를 입력하세요."));
-            if (this.quizNum < 1) {
-                JOptionPane.showMessageDialog(null,
-                        "1문제 이상 출제해야 합니다. 다시 입력하세요!",
-                        "경고", JOptionPane.WARNING_MESSAGE);
-            } else {
-                break;
+            String input = JOptionPane.showInputDialog("출제할 문제 수를 입력하세요.");
+            if (input == null) return; // 취소 처리
+            try {
+                this.quizNum = Integer.parseInt(input);
+                if (this.quizNum < 1) {
+                    JOptionPane.showMessageDialog(null, "1문제 이상 출제해야 합니다.", "경고", JOptionPane.WARNING_MESSAGE);
+                } else {
+                    break;
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(null, "숫자를 입력하세요.", "경고", JOptionPane.WARNING_MESSAGE);
             }
         }
         if (this.quizNum > words.size()) {
@@ -625,7 +636,6 @@ public class QuizDialog extends JDialog {
 
 
     private void multipleChoiceQuestion(ArrayList<Word> words, boolean isPublic) {
-        // 단어가 없거나 보기 4개를 만들 수 없으면 반환
         if (words == null || words.isEmpty()) {
             JOptionPane.showMessageDialog(null, "단어가 등록되어 있지 않습니다!", "경고", JOptionPane.WARNING_MESSAGE);
             return;
@@ -633,38 +643,33 @@ public class QuizDialog extends JDialog {
             JOptionPane.showMessageDialog(null, "객관식 보기를 만들 단어(4개)가 부족합니다.", "경고", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        // 출제할 문제 수 입력
+
         while (true) {
             String input = JOptionPane.showInputDialog("출제할 문제 수를 입력하세요:");
-            if (input == null) {
-                JOptionPane.showMessageDialog(null, "문제 수를 입력하지 않았습니다!", "경고", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+            if (input == null) return;
             try {
                 this.quizNum = Integer.parseInt(input.trim());
+                if (this.quizNum < 1) {
+                    JOptionPane.showMessageDialog(null, "1문제 이상 출제해야 합니다.", "경고", JOptionPane.WARNING_MESSAGE);
+                } else {
+                    break;
+                }
             } catch (NumberFormatException e) {
                 JOptionPane.showMessageDialog(null, "숫자를 입력하세요!", "경고", JOptionPane.WARNING_MESSAGE);
-                continue;
-            }
-            if (this.quizNum < 1) {
-                JOptionPane.showMessageDialog(null, "1문제 이상 출제해야 합니다. 다시 입력하세요!", "경고", JOptionPane.WARNING_MESSAGE);
-            } else {
-                break;
             }
         }
         if (this.quizNum > words.size()) {
-            this.quizNum = words.size(); // 최대 단어 개수까지
+            this.quizNum = words.size();
         }
 
         ArrayList<Word> mutableWords = new ArrayList<>(words);
-        // 점수 초기화
         this.score = 0;
         this.dispose();
         new MultipleChoiceDialog(this, words, isPublic, mutableWords);
     }
 
 
-    //오답노트
+    // 오답노트
 
     private void addToNote(String aEng, String aKor) {
         String entry = aEng + "\t" + aKor;
@@ -675,12 +680,13 @@ public class QuizDialog extends JDialog {
 
     private void createNote() {
         if (noteWords.isEmpty()) {
-            JOptionPane.showMessageDialog(null,"틀린 단어가 없습니다.",
-                    "알림",JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(null, "틀린 단어가 없습니다.",
+                    "알림", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
         File notes = new File(Path.getUserNotesDirPath(currentUser.getName()));
+        if (!notes.exists()) notes.mkdirs(); // 디렉토리 없으면 생성
 
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HH_mm_ss");
@@ -693,11 +699,11 @@ public class QuizDialog extends JDialog {
             for (String word : noteWords) {
                 pw.println(word);
             }
-            JOptionPane.showMessageDialog(null,"오답노트 생성 완료",
-                    "알림",JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(null, "오답노트 생성 완료",
+                    "알림", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(null,
-                    "파일 저장 중 오류가 발생했습니다!\n"+e.getMessage(),
+                    "파일 저장 중 오류가 발생했습니다!\n" + e.getMessage(),
                     "경고", JOptionPane.WARNING_MESSAGE);
         }
 
@@ -711,7 +717,9 @@ public class QuizDialog extends JDialog {
         for (String kor : aKorList) {
             korStr += kor + "/"; //한국어/한국어2/ ... / 형식
         }
-        return korStr.substring(0, korStr.length() - 1); //맨 마지막의 /를 지우기
+        if (korStr.length() > 0)
+            return korStr.substring(0, korStr.length() - 1); //맨 마지막의 /를 지우기
+        return "";
     }
 
     private ArrayList<String> loadWordsFromFile(String pathStr) {
@@ -732,24 +740,31 @@ public class QuizDialog extends JDialog {
 
         } catch (IOException e) {
             JOptionPane.showMessageDialog(null,
-                    "파일을 읽는 중 오류가 발생했습니다!\n"+e.getMessage(),
+                    "파일을 읽는 중 오류가 발생했습니다!\n" + e.getMessage(),
                     "경고", JOptionPane.WARNING_MESSAGE);
             return null;
         }
     }
 
     private void updateStatistics(ArrayList<Word> list) {
+        // 저장할 파일이나 데이터가 없으면 아무 것도 안 함
+        if (currentFilePath == null || list == null || list.isEmpty()) {
+            return;
+        }
+
         try (PrintWriter pw = new PrintWriter(
-                new OutputStreamWriter(new FileOutputStream(Path.PUBLIC_DIR, false), StandardCharsets.UTF_8))) {
+                new OutputStreamWriter(new FileOutputStream(currentFilePath, false), StandardCharsets.UTF_8))) {
+
             for (Word word : list) {
-                if (word instanceof PublicWord)
-                    pw.println(word);
+                if (word instanceof PublicWord pwWord) {
+                    pw.println(pwWord);
+                }
             }
-            JOptionPane.showMessageDialog(null,"단어 통계를 파일에 저장했습니다.",
-                    "알림",JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(null, "단어 통계를 파일에 저장했습니다.",
+                    "알림", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(null,
-                    "단어 통계 저장 중 오류가 발생했습니다!\n"+e.getMessage(),
+                    "단어 통계 저장 중 오류가 발생했습니다!\n" + e.getMessage(),
                     "경고", JOptionPane.WARNING_MESSAGE);
         }
     }
